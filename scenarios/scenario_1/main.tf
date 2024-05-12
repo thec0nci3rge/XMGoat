@@ -1,50 +1,60 @@
 #############################################################################
 # VARIABLES
 #############################################################################
-variable "container_name" {
+
+variable "tenant_domain_name" {
   type        = string
+  description = "A tenant's domain name in Entra ID is a unique, customizable domain that represents the organization's identity namespace for user sign-in and email addresses within the tenant (e.g: contoso.org or contoso.onmicrosoft.com)"
 }
 
-variable "storage_account_name" {
-  type        = string
+variable "entraid_user_name" {
+	type        = string
+	description = "A user is an entity that represents an individual user account and associated attributes within the Entra ID identity and access management service"
 }
 
-variable "linux_virtual_machine_name" {
-  type        = string
-}
-
-variable "virtual_network_name" {
-  type        = string
-}
-
-variable "user_name" {
-  type        = string
-}
-
-variable "user_assigned_identity_name" {
-  type        = string
+variable "entraid_user_password" {
+	type		    = string
+	description	= "Password associated with the previously created Entra ID user"
 }
 
 variable "resource_group" {
   type        = string
-  description = "Existing resource group to deploy resources"
+  description = "A resource group is a logical container that groups together related Azure resources for management & access control purposes"
 }
 
-variable "domain" {
+variable "virtual_network_name" {
+	type        = string
+	description = "A virtual network is a logically isolated network infrastructure that enables secure communication between resources (in Azure, on-prem, ...)"
+}
+
+variable "storage_account_name" {
+	type		    = string
+	description = "A storage account represents a globally unique namespace within Azure, responsible for storing data objects, such as blobs, files and more"
+}
+
+variable "storage_container_name" {
+	type		    = string
+	description = "A storage container is a representation of a folder within a storage account, where it is possible to store files"
+}
+
+variable "linux_virtual_machine_name" {
+	type        = string
+	description = "A virtual machine running linux"
+}
+
+variable "linux_vm_admin_user" {
   type        = string
-  description = "Domain name (for example: contoso.onmicrosoft.com)"
+  description = "Local admin user account on the previosuly created VM"
 }
 
-variable "user_password" {
-  type    = string
+variable "linux_vm_admin_user_password" {
+  type        = string
+  description = "Password associated with the previously created local admin account"
 }
 
-variable "vm_password" {
-  type    = string
-}
-
-variable "vm_user" {
-  type    = string
+variable "linux_vm_managed_identity_name" {
+	type        = string
+	description = "A managed identity can be associated with Azure resources (like VMs, Functions, ...), enabling them to authenticate securely with other Azure services without requiring explicit credentials"
 }
 
 #############################################################################
@@ -56,7 +66,6 @@ data "azurerm_subscription" "current" {}
 data "azurerm_resource_group" "current" {
   name = var.resource_group
 }
-
 
 #############################################################################
 # PROVIDERS
@@ -74,12 +83,12 @@ provider "azuread" {
 # RESOURCES
 #############################################################################
 
-## AZURE AD USER ##
+## ENTRA ID USER ##
 
 resource "azuread_user" "user" {
-  user_principal_name = "${var.user_name}@${var.domain}"
-  display_name        = var.user_name
-  password            = var.user_password
+  user_principal_name = "${var.entraid_user_name}@${var.tenant_domain_name}"
+  display_name        = var.entraid_user_name
+  password            = var.entraid_user_password
 }
 
 resource "azuread_application" "scenario1App" {
@@ -88,10 +97,9 @@ resource "azuread_application" "scenario1App" {
 }
 
 resource "azuread_service_principal" "scenario1SPN" {
-  application_id               = azuread_application.scenario1App.application_id
+  client_id               = azuread_application.scenario1App.client_id
   owners                       = [azuread_user.user.id]
 }
-
 
 ## AZURE LINUX VIRTUAL MACHINE ##
 
@@ -111,7 +119,7 @@ resource "azurerm_subnet" "internal" {
 
 
 resource "azurerm_user_assigned_identity" "uai" {
-  name                = var.user_assigned_identity_name
+  name                = var.linux_vm_managed_identity_name
   resource_group_name = data.azurerm_resource_group.current.name
   location            = data.azurerm_resource_group.current.location
 }
@@ -133,8 +141,8 @@ resource "azurerm_linux_virtual_machine" "main" {
   resource_group_name             = data.azurerm_resource_group.current.name
   location                        = data.azurerm_resource_group.current.location
   size                            = "Standard_B2s"
-  admin_username                  = var.vm_user
-  admin_password                  = var.vm_password
+  admin_username                  = var.linux_vm_admin_user
+  admin_password                  = var.linux_vm_admin_user_password
   disable_password_authentication = false
   network_interface_ids = [
     azurerm_network_interface.linux.id,
@@ -168,7 +176,7 @@ resource "azurerm_storage_account" "main" {
 }
 
 resource "azurerm_storage_container" "main" {
-  name                  = var.container_name
+  name                  = var.storage_container_name
   storage_account_name  = azurerm_storage_account.main.name
   container_access_type = "private"
 }
@@ -231,6 +239,7 @@ resource "azurerm_role_assignment" "read-blobs" {
 output "username"{
   value = azuread_user.user.user_principal_name
 }
+
 output "password" {
   value = azuread_user.user.password
   sensitive = true
