@@ -30,6 +30,9 @@ $ cd scenarios
 $ cd scenario_<\SCENARIO>
 ```
 Where <\SCENARIO> is the scenario number you want to complete
+
+> [!IMPORTANT]  
+> Ensure that you create a Resource Group prior, as this terraform script will only use an existing one and will not create it for you!
 ```
 $ terraform init
 $ terraform plan -out <\FILENAME>
